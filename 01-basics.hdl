@@ -1,0 +1,128 @@
+// hdl is a strongly typed hardware description language. Each net is associated
+// with an underlying type. Most net definitions look like the following:
+// let net[: type] = value;
+//
+// As described below, basic type inference is available to reduce verbosity
+// where the resulting type is unambigious. Type safety is enforced when
+// assigning nets to literals or expressions.
+//
+// The most basic type in hdl is a bit vector, specified with the prefix `b`
+// followed by a width. The following declares an 8 bit bit vector and
+// initializes it to the constant literal hex AA.
+let byte: b8 = 0xAA;
+// Integer literals automatically infer the smallest underlying vector needed to
+// store the value losslessly. Literals can be provided in any of the standard
+// bases, without needing to specify the bitwidth.
+let binary: b4 = 0b1101;
+let octal: b6 = 0o76;
+let decimal: b5 = 31;
+
+// Types can automatically convert to other types, called *coercion*. This is
+// only allowed when the casting operationi needed is unambigious and lossless.
+// For example, bit vectors will zero-extend to larger vectors.
+let half_word: b16 = 0xCAFE;
+let word: b32 = half_word;
+// In the above example, word is initialized to 0x0000CAFE as the transformation
+// does not lose any information. However, unlike verilog, implicit truncation
+// is not permitted. This will not compile:
+let truncated: b8 = half_word;
+
+// You can, however, extract a subset of the bits in a bit vector into a new
+// type explicitly. This operation is calling slicing. To extract a single bit,
+// use the [] operator with the (zero indexed) bit. Notice that since it is
+// obvious from the expression that the result is 1 bit, the type is inferred.
+let msb = word[31];
+// To extract a range of bits, use the [] operator with a start and end range.
+// The most significant index is provided first (exclusive), followed by the
+// least significant index (inclusive).
+let upper_byte = half_word[16..8];
+// The above is equivalent to `half_word[15:8]` in verilog.
+// This syntax may feel a bit weird, but is deliberate. Like verilog, the most
+// significant index is specified first for consistency. However, unlike
+// verilog, and like many conventional programming languages, one index is
+// exclusive. This makes it easy to reason about the width of the type:
+// width = upper - lower = 16 - 8 = 8.
+// Additionally, it makes adjacent slices more consistent and avoids having to
+// do "subtract one" arithmetic:
+let byte0 = word[ 8.. 0];
+let byte1 = word[16.. 8];
+let byte2 = word[24..16];
+let byte3 = word[32..24];
+// Compared to the following in verilog:
+// wire [7:0] byte0 = word[ 7: 0];
+// wire [7:0] byte1 = word[15: 8];
+// wire [7:0] byte2 = word[23:16];
+// wire [7:0] byte3 = word[31:24];
+
+// Bit vectors support bitwise arithmetic. The usual operators work:
+let band = byte0 & byte1;
+let bor  = byte2 | byte3;
+let bxor = band ^ bxor;
+let binv = ~bxor;
+// Integer arithmetic is not defined on bit vectors (we'll introduce different
+// types next to address this).
+
+// Conceptually, bit vectors store one of (2 ^ n) different bit strings. The
+// unsigned integer types, prefixed with `u`, map these bit strings to the
+// integer values [0, 2 ^ n - 1]. Integers support addition as well as all the
+// bitwise operations that bit vectors support. Note that all operations are
+// lossless: the result of a 32 bit addition is a 33 bit value, including the
+// carry-out of the MSB.
+let a: u32 = 1234;
+let b: u32 = 5678;
+let c: u33 = a + b;
+// Recall that it is illegal to implicitly truncate the resulting value, so the
+// following will not work:
+// let wrap: u32 = a + b;
+// However, we will later cover explicit casts which can address this.
+// TODO: Specify the definition of subtraction. Semantics are unclear.
+
+// The signed integer types, prefixed with `i`, are similar, but map the same
+// bit strings to the integer values [-2 ^ (n - 1), 2 ^ (n - 1) - 1]. They are
+// represented using twos-complement. This additionally provides unary negation:
+let d: i32 = -1;
+
+// Slicing also works on both integer types. However, the result is a bit vector,
+// not an integer - the *integral* component of the type information is lost
+// during slicing. This is because, especially with signed types, the result of
+// an arbitrary slice operation is not necessarily a well-defined number.
+// Extracting the msb of an i32 would not yield an i1.
+// Notice that the second argument can be inferred as 0:
+let wrap: b32 = (a + b)[32..];
+
+// Complex arithmetic operations, such as multiplication, division, modulus,
+// and shifts, are not defined as operators. They are provided through language
+// builtins and the standard library, as described later.
+
+// Another primitive type is the *boolean*. Booleans are type-safe wrappers
+// around 1-bit values that represent logical values. More formally, they map
+// {0, 1} to {false, true}. They support the logical not, and, or, xor, and
+// implies operators, but none of the bitwise or integer arithmetic operations.
+// Unlikely in programming languages, there is no short circuiting logic (this
+// does not make any sense for hardware) and they synthesize to regular bitwise
+// gates on 1 bit inputs.
+let land: bool = true and false;
+let lor  = true and false;
+let lxor = true xor false;
+let limp = true implies lxor;
+let lnot = not limp;
+// Illegal:
+// let invalid = true | false;
+
+// The final primitive type is the one-hot vector, prefixed with an `o`. One hot
+// vectors map only a subset of the bit strings [0, 2 ^ n - 1].  A 4 bit one hot
+// vector, denoted 04, has only 4 valid values (compared to 2 ^ 4 = 16 for b4):
+// 0b0001, 0b0010, 0b0100, 0b1000
+// The compiler will enforce legal assignment to one hot vectors where possible.
+// For example, it is not legal to assign an invalid literal:
+let lsb: o4 = 1;
+// Illegal:
+// let multiple: o4 = 0b1100;
+// One hot vectors support bitwise arithmetic operators and slicing, and the
+// result is always a bit vector. Similarly to with integers, the extra
+// information is lost, as it cannot be guaranteed that the result is also a one
+// hot vector. To override this behavior, explicit casts can be used.
+
+// One hot types are useful for type checking in state machines, low power designs,
+// and efficient generation of switch cases. We will see more about them later with
+// switch statements.
