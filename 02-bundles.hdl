@@ -1,0 +1,45 @@
+type Bundles = module () -> void {
+    // Types can be *aliased* for readability purposes. This allows a name to be
+    // assigned to any type expression, which can then be used in place of that type
+    // expression. By default, these type aliases do not provide any additional
+    // features or safety, and can be interchanged freely with the underlying type
+    // purely for readability.
+    type Byte = b8;
+    type CacheLine = b512; // Nothing wrong with very large vectors, by the way.
+
+    // One of the simplest and most powerful additions in hdl is the `bundle` type.
+    // Bundles are an aggregate type - they compose zero (!!) or more underlying
+    // types into a single composite. This allows for some very powerful constructs,
+    // as we will see.
+    //
+    // It is convenient to define a bundle type as an alias:
+    type Read = bundle {
+        addr: Address,
+        data: Data,
+
+        // Bundles allow nested type aliases, which act as convenient namespacing.
+        type Address = u32;
+        type Data = u32;
+    };
+
+    // Instances of this bundle can then be created:
+    let packet1 = Read { .addr = 0, .data = 0xDEADC0DE };
+    // While the above syntax is valid, a more convenient syntax exists that uses
+    // hdl's type inference system, known as *result location semantics* (modeled on
+    // Zig's inference system of the same name).
+    let packet2: Read = .{ .addr = 128, .data = 0xCAFEB0BA };
+    // While this may seem weird and redundant (didn't the type just move from the
+    // expression to the type annotation?), these anonymous bundle literals are very
+    // useful in situations where the type can otherwise be inferred from context,
+    // improving code readability.
+
+    // Once created, bundle members can be accessed using the dot operator:
+    let addr: Read.Address = packet1.addr;
+    let data = packet2.data;
+    let combined: Read = .{ .addr = addr, .data = data };
+    let clone = combined;
+
+    // When working with modules (defined later), bundles are very useful for
+    // reducing errors when passing multiple related signals together, as well as
+    // just reducing the amount of boilerplate code needed.
+};
