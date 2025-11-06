@@ -1,0 +1,38 @@
+// Modules behave very similiarly to their counterparts in verilog. They
+// encapsulate a piece of hardware, exposing a set of input and output ports.
+// However, input and output ports are explicitly separated to show the logical
+// flow of data.
+//
+// Modules take zero or more inputs, and produce exactly one output. If multiple
+// outputs are desired, a bundle is a convenient way to group them together.
+type FullAdder = module (a: b1, b: b1, cin: b1) -> bundle { sum: b1, cout: b1 } {
+    // Inputs can be used directly like internal nets.
+    let sum = a & b & cin;
+    let cout = (a & b) | (a & cin) | (b & cin);
+
+    // Unlike in verilog, where outputs are assigned individually in an ad-hoc
+    // way, hdl modules produce a single output value. This must be assigned *once*
+    // atomically at the end of the module using the `yield` keyword. Notice
+    // that the output type for the anonymous bundle literal is inferred, because we
+    // are in a module context where the output type is known.
+    yield .{ .sum = sum, .cout = cout };
+}
+
+type Adder = module (a: b4, b: b4, cin: b1) -> bundle { sum: b4, cout: b1 } {
+    // Modules can then be instantiated using function-like syntax, passing in
+    // the required inputs and assigning the output to a net.
+    // Here, we instantiate four FullAdder modules to create a 4 bit adder. In
+    // each case, the output net fa<n> is a bundle containing both the sum and
+    // carry out, with an inferred type.
+    let fa0 = FullAdder(a[0], b[0], cin);
+    let fa1 = FullAdder(a[1], b[1], fa0.cout);
+    let fa2 = FullAdder(a[2], b[2], fa1.cout);
+    let fa3 = FullAdder(a[3], b[3], fa2.cout);
+
+    // The outputs can then be combined to produce the final output.
+    yield .{
+        // NOTE: The exact syntax for concatenating vectors is subject to change.
+        .sum  = .{ fa0.sum, fa1.sum, fa2.sum, fa3.sum },
+        .cout = fa3.cout,
+    };
+}
