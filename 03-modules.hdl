@@ -16,7 +16,7 @@ type FullAdder = module (a: b1, b: b1, cin: b1) -> bundle { sum: b1, cout: b1 } 
     // that the output type for the anonymous bundle literal is inferred, because we
     // are in a module context where the output type is known.
     yield .{ .sum = sum, .cout = cout };
-}
+};
 
 type Adder = module (a: b4, b: b4, cin: b1) -> bundle { sum: b4, cout: b1 } {
     // Modules can then be instantiated using function-like syntax, passing in
@@ -24,10 +24,12 @@ type Adder = module (a: b4, b: b4, cin: b1) -> bundle { sum: b4, cout: b1 } {
     // Here, we instantiate four FullAdder modules to create a 4 bit adder. In
     // each case, the output net fa<n> is a bundle containing both the sum and
     // carry out, with an inferred type.
-    let fa0 = FullAdder(a[0], b[0], cin);
-    let fa1 = FullAdder(a[1], b[1], fa0.cout);
-    let fa2 = FullAdder(a[2], b[2], fa1.cout);
-    let fa3 = FullAdder(a[3], b[3], fa2.cout);
+    //
+    // Named inputs are mandatory for clarity.
+    let fa0 = FullAdder(a=a[0], b=b[0], cin=cin);
+    let fa1 = FullAdder(a=a[1], b=b[1], cin=fa0.cout);
+    let fa2 = FullAdder(a=a[2], b=b[2], cin=fa1.cout);
+    let fa3 = FullAdder(a=a[3], b=b[3], cin=fa2.cout);
 
     // The outputs can then be combined to produce the final output.
     yield .{
@@ -35,4 +37,4 @@ type Adder = module (a: b4, b: b4, cin: b1) -> bundle { sum: b4, cout: b1 } {
         .sum  = .{ fa0.sum, fa1.sum, fa2.sum, fa3.sum },
         .cout = fa3.cout,
     };
-}
+};

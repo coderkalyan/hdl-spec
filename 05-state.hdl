@@ -1,0 +1,52 @@
+type State = module (clk: Clock, rst: Reset, input: u8) -> void {
+    // It's time to introduce state. Digital logic isn't very useful without
+    // sequantial elements that store values across clock cycles. hdl takes a
+    // different approach than Verilog, where sequential logic is inferred from
+    // behavioral constructs (always blocks). Instead, state elements are
+    // treated as first class primitives and instantiated directly. This is
+    // easier to reason about, easier to analyze and synthesize, and much more
+    // compact.
+    //
+    // First, note that the toplevel module now takes in two inputs, a clock and
+    // reset. This is pretty standard, but these types are special built-in
+    // types, rather than `b1`. This has a number of benefits:
+    // (1) It is impossible to accidentally connect other signals to a clock or
+    // reset input.
+    // (2) It is possible to have multiple clock and reset domains in a design
+    // and connect them with type safety.
+    // (3) Clocks have configurable polarity (and optionally frequency) and
+    // resets can be either synchronous or asynchronous. You can change out
+    // these properties without changing the internal stateful logic.
+    //
+    // The most important stateful primitive is the register - a clocked, edge
+    // triggered storage element. They are exposed as the `Reg` builtin, and
+    // instantiated like a module. Notice the [type] syntax for specifying the
+    // type of the register - this uses hdl's generic system, which we'll cover
+    // later.
+    let reg0 = Reg[u8](clk=clk, rst=rst, init=0, d=input);
+
+    // Clock and resets must be passed directly to all stateful elements,
+    // unlike languages like Chisel and Amaranth, where they are implicit. This
+    // trades a little bit of verbosity for code readability - you can tell what
+    // is stateful by looking at if it has a clock and reset. It also supports
+    // multiple clock and reset domains. Still, this is significantly more
+    // concise than verilog:
+    // reg [7:0] reg0;
+    // always @(posedge clk) begin
+    //     if (rst)
+    //         reg0 <= 8'h00;
+    //     else
+    //         reg0 <= input;
+    // end
+
+    // Registers with feedback paths are also supported, using forward
+    // declarations:
+    // NOTE: The syntax for forward declarations is subject to change.
+    let next_counter: u32;
+    let counter = Reg[u32](clk=clk, rst=rst, init=0, d=next_counter);
+    next_counter = @truncate(counter + 1);
+
+    // TODO: Add the other stateful primitives:
+    // * Latch
+    // * Memory
+};
