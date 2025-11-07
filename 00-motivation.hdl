@@ -1,0 +1,36 @@
+// This spec describes the design of hdl, a yet unnamed hardware description
+// language. The goal of hdl is to apply principles from programming language
+// theory to create a more productive, safe HDL. However, hdl does not aim to
+// raise the abstraction level - while more compact to write and easier to read,
+// this is only the result of syntax improvements and better language design.
+// hdl still describes hardware at the register transfer level (RTL) and maps
+// 1:1 to synthesizable verilog constructs.
+//
+// Here are some of the key goals behind hdl's design:
+// (1) All constructs should be synthesizable. Unlike verilog, which was
+// designed as a simulation language with synthesis as an afterthought, hdl is
+// synthesis-first. Testbenches are out of scope and should use existing
+// frameworks that target RTL simulation and verification.
+//
+// (2) The language should be strongly typed to catch a wide range of common
+// errors in verilog code (implicit truncation, mismatched signs, X and Z
+// propogation) at compile time.
+//
+// (3) The language should be easy to read first, and write second. Syntax sugar
+// that makes code shorter to write at the cost of readability is discouraged.
+//
+// (4) There will be no behavioral logic. Behavioral logic is fundamentally
+// contradictory to how hardware works, and makes reasoning about RTL difficult
+// for both humans and tools. Additional structural/dataflow constructs are
+// added to account for the most common behavioral patterns, with the knowledge
+// that some (but hopefully not most) behavioral patterns will be more verbose.
+//
+// (5) Where possible, hdl should be more concise than verilog. This is achieved
+// through careful language design, not raising the abstraction level.
+//
+// (6) hdl should be able to describe any synthesizable verilog construct,
+// (like multiple clock domains, asynchronous and synchronous resets, dont-care
+// values, etc).
+//
+// (7) The reference implementation should generate high quality, correct,
+// human-readable verilog to help with adoption into existing projects and tools.
