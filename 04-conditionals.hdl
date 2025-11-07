@@ -1,0 +1,132 @@
+type Conditionals = module (p: bool, sel: u2) -> void {
+    // hdl does not have conventional behavioral logic (for reasons outlined in the
+    // introduction). Instead, there are two main constructs for modeling
+    // conditional logic - expressions that choose between multiple output values
+    // based on an input expression. Note that this is *not* control flow - all
+    // output branches are materialized as hardware, and the output expression is
+    // selected using a multiplexer.
+    //
+    // The first such construct (and most used) is the `switch`. Switch statements
+    // compare an input expression against a series of possible constant values, and
+    // pick the output expression corresponding to the matching case. This is
+    // roughly equivalent to the `full case` in Verilog or the `unique case` in
+    // SystemVerilog, but with stricter rules and better type safety.
+    //
+    // In the following example, a boolean expression `p` is used to select
+    // between two possible expressions. As such, the switch must provide
+    // branches for both possible values of `p` - true and false.
+    let a: u4 = 7;
+    let b: u4 = 8;
+    let mux = switch (p) {
+        true => a & b,
+        false => a ^ b,
+    };
+
+    // The compiler will ensure that all possible values of the input expression
+    // are covered by the provided branches. For example, the following would
+    // not be legal:
+    // let mux = switch (p) {
+    //     true => a + b,
+    // };
+
+    // Different types can be used as the input expression, as long as all cases
+    // are covered. All outputs must also be of the same type.
+    let value = switch (sel) {
+        0 => a | b,
+        1 => a & b,
+        2 => a ^ b,
+        3 => ~a,
+        // Cases cannot be specified twice - this would be illegal:
+        // 3 => a + b,
+    };
+    // However, in cases where some input values are not expected to occur, an
+    // default case can be provided using the `else` keyword. Note that the
+    // value here also needs to be provided - we will see later how to avoid
+    // this with `undefined` for dont-care cases.
+    let sparse = switch (sel) {
+        // Multiple cases can be combined using a comma.
+        0, 1 => a & b,
+        // Covers the 2 and 3 cases.
+        else => a + b,
+    };
+
+    // The second construct is the `priority` expression. Note that hdl does not
+    // have traditional if or if-else statements, as these can imply control
+    // flow and are harder to reason about. However, priority expressions can be
+    // used in situations where if-else if-else chains would be convenient, and
+    // a switch is clumsy.
+    //
+    // For example, a circuit that compares a value against a series of
+    // thresholds to choose the output.
+    let input: u8 = 150;
+    // Each condition is now (1) not a constant, as it is a boolean expression
+    // calculated from the input, and (2) not mutually exclusive, as lower
+    // thresholds will overlap with higher ones.
+    // 
+    // This could be modeled using nested switches:
+    let clumsy = switch (input >= 200) {
+        true => 3,
+        false => switch (input >= 150) {
+            true => 2,
+            false => switch (input >= 100) {
+                true => 1,
+                false => 0,
+            },
+        },
+    };
+
+    // To avoid this, the priority expression infers a chain of logic that
+    // compares the input conditions in order, selecting the output according to
+    // the first expression that evaluates to true. It's important to note that
+    // this is purely syntax sugar for the series of multiplexers that are
+    // obvious in the nested switch. There is no advanced control flow implied
+    // here.
+    let levels = priority {
+        input >= 200 => 3,
+        input >= 150 => 2,
+        input >= 100 => 1,
+        // A default case is always required for priority expressions to cover all
+        // possibilities.
+        else => 0,
+    };
+
+    // The rest of these notes apply to both switch and priority expressions.
+
+    // All output expressions must be the same type, which can be inferred by
+    // the compiler if obvious.
+    let out = switch (sel) {
+        // The following expressions all evaluate to type u4
+        0 => a,
+        1 => b,
+        2 => a ^ b,
+        else => a | b,
+        // This would be illegal, as addition produces a u5 result:
+        // else => a + b,
+    };
+    // If the output type is different, provide a result type to help the
+    // compiler coerce the outputs:
+    let coerced: u5 = switch (sel) {
+        // The first three outputs are u4, and are zero extended to u5.
+        0 => a,
+        1 => b,
+        2 => a ^ b,
+        // Addition naturally produces a u5 result.
+        3 => a + b,
+    };
+
+    // Sometimes, you may want more complex expressions with intermediate logic.
+    // You can do this through block expressions. Blocks can act as expressions
+    // as long as they yield a value - the default value of a block is void
+    // (itself a type that we'll discuss later).
+    let complex = switch (sel) {
+        0 => {
+            let temp = a & b;
+            yield temp & 0xF;
+        },
+        1 => {
+            let temp = a ^ b;
+            yield ~temp & 0xF;
+        },
+        else => 0,
+    };
+};
